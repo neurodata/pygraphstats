@@ -80,3 +80,21 @@ class TestEstimateSubgraph(unittest.TestCase):
             test_model.fit(A, np.array([0, 1, 2]), 1)
         with self.assertRaises(ValueError):
             test_model.fit(A, np.ones(2), 1)
+
+    def test_estimate_subgraph_coh(self):
+        ys = np.array([0, 1, 0, 1, 0, 1, 0, 1, 0, 1])
+        blank = np.ones((10, 10))
+        blank[1:6, 0] = 0
+        A = np.ones((10, 10, 10))
+
+        for ind in range(10):
+            if ys[ind] == 1:
+                A[:, :, ind] = blank
+        test_model = sg.SignalSubgraph()
+        test_model.fit(A, ys, [5, 1])
+
+        pred_label = test_model.predict(A[:, :, 0])
+        np.testing.assert_array_equal(pred_label, 0)
+
+        pred_label = test_model.predict(A[:, :, 1])
+        np.testing.assert_array_equal(pred_label, 1)
