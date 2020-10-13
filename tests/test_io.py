@@ -122,3 +122,46 @@ class TestImportEdgelist:
         delimiter = ","
         with pytest.warns(UserWarning):
             graphs = gs.utils.import_edgelist(self.root, delimiter=delimiter)
+
+
+class TestImportMultiGraph:
+    @classmethod
+    def setup_class(cls):
+        # simple ERxN graph
+        n1 = 15
+        n2 = 20
+        p = 0.5
+        cls.A, cls.B = [gs.simulations.er_np(n1, p) for _ in range(2)]
+        cls.C = gs.simulations.er_np(n2, p)  # different size
+
+    def test_in(self):
+        input_list = [self.A, self.B]
+        input_array = np.array([self.A, self.B])
+
+        assert isinstance(gs.utils.import_multigraphs(input_list), list)
+        assert isinstance(gs.utils.import_multigraphs(input_array), np.ndarray)
+
+    def test_wrongtypein(self):
+        with pytest.raises(TypeError):
+            gs.utils.import_multigraphs(5)
+        with pytest.raises(TypeError):
+            gs.utils.import_multigraphs(None)
+
+    def test_one_graph(self):
+        input_list = [self.A]
+        input_arr = self.A
+        input_tensor = np.array(self.A)
+
+        with pytest.raises(ValueError):
+            gs.utils.import_multigraphs(input_list)
+
+        with pytest.raises(ValueError):
+            gs.utils.import_multigraphs(input_arr)
+
+        with pytest.raises(ValueError):
+            gs.utils.import_multigraphs(input_tensor)
+
+    def test_diff_sizes(self):
+        input_list = [self.A, self.B, self.C]
+        with pytest.raises(ValueError):
+            gs.utils.import_multigraphs(input_list)

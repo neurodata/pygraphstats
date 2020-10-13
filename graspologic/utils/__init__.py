@@ -4,6 +4,7 @@
 from .utils import (
     import_graph,
     import_edgelist,
+    import_multigraphs,
     is_symmetric,
     is_loopless,
     is_unweighted,
@@ -25,6 +26,7 @@ from .ptr import pass_to_ranks
 __all__ = [
     "import_graph",
     "import_edgelist",
+    "import_multigraphs",
     "is_symmetric",
     "is_loopless",
     "is_unweighted",

@@ -5,7 +5,7 @@ import warnings
 
 import numpy as np
 
-from ..utils import import_graph, is_fully_connected
+from ..utils import import_graph, import_multigraphs, is_fully_connected
 from .base import BaseEmbedMulti
 
 
@@ -164,7 +164,9 @@ class OmnibusEmbed(BaseEmbedMulti):
         self : object
             Returns an instance of self.
         """
-        graphs = self._check_input_graphs(graphs)
+        graphs = import_multigraphs(graphs)
+        self.n_graphs_ = len(graphs)
+        self.n_vertices_ = graphs[0].shape[0]
 
         # Check if Abar is connected
         if self.check_lcc:

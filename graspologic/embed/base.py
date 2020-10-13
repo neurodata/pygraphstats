@@ -192,61 +192,6 @@ class BaseEmbedMulti(BaseEmbed):
             raise TypeError("`diag_aug` must be of type bool")
         self.diag_aug = diag_aug
 
-    def _check_input_graphs(self, graphs):
-        """
-        Checks if all graphs in list have same shapes.
-
-        Raises an ValueError if there are more than one shape in the input list,
-        or if the list is empty or has one element.
-
-        Parameters
-        ----------
-        graphs : list of nx.Graph or ndarray, or ndarray
-            If list of nx.Graph, each Graph must contain same number of nodes.
-            If list of ndarray, each array must have shape (n_vertices, n_vertices).
-            If ndarray, then array must have shape (n_graphs, n_vertices, n_vertices).
-
-        Returns
-        -------
-        out : ndarray, shape (n_graphs, n_vertices, n_vertices)
-
-        Raises
-        ------
-        ValueError
-            If all graphs do not have same shape, or input list is empty or has
-            one element.
-        """
-        # Convert input to np.arrays
-        # This check is needed because np.stack will always duplicate array in memory.
-        if isinstance(graphs, (list, tuple)):
-            if len(graphs) <= 1:
-                msg = "Input {} must have at least 2 graphs, not {}.".format(
-                    type(graphs), len(graphs)
-                )
-                raise ValueError(msg)
-            out = [import_graph(g, copy=False) for g in graphs]
-        elif isinstance(graphs, np.ndarray):
-            if graphs.ndim != 3:
-                msg = "Input tensor must be 3-dimensional, not {}-dimensional.".format(
-                    graphs.ndim
-                )
-                raise ValueError(msg)
-            elif graphs.shape[0] <= 1:
-                msg = "Input tensor must have at least 2 elements, not {}.".format(
-                    graphs.shape[0]
-                )
-                raise ValueError(msg)
-            out = import_graph(graphs, copy=False)
-        else:
-            msg = "Input must be a list or ndarray, not {}.".format(type(graphs))
-            raise TypeError(msg)
-
-        # Save attributes
-        self.n_graphs_ = len(out)
-        self.n_vertices_ = out[0].shape[0]
-
-        return out
-
     def _diag_aug(self, graphs):
         """
         Augments the diagonal off each input graph. Returns the original

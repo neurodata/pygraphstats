@@ -4,7 +4,7 @@
 import numpy as np
 from sklearn.utils.validation import check_is_fitted
 
-from ..utils import import_graph, is_almost_symmetric
+from ..utils import import_graph, import_multigraphs, is_almost_symmetric
 from .base import BaseEmbedMulti
 from .svd import select_dimension, selectSVD
 
@@ -199,7 +199,9 @@ class MultipleASE(BaseEmbedMulti):
         self : object
             Returns an instance of self.
         """
-        graphs = self._check_input_graphs(graphs)
+        graphs = import_multigraphs(graphs)
+        self.n_graphs_ = len(graphs)
+        self.n_vertices_ = graphs[0].shape[0]
 
         # Check if undirected
         undirected = all(is_almost_symmetric(g) for g in graphs)

@@ -5,6 +5,7 @@ import warnings
 from collections import Iterable
 from functools import reduce
 from pathlib import Path
+from typing import List, Union
 
 import networkx as nx
 import numpy as np
@@ -149,6 +150,63 @@ def import_edgelist(
         return out, vertices
     else:
         return out
+
+
+def import_multigraphs(
+    graphs: Union[List[nx.Graph], List[np.ndarray], np.ndarray]
+) -> np.ndarray:
+    """
+    A function for reading multiple graph and returning the original input data
+    type. Ensures all graphs have the same shape.
+
+    Raises an ValueError if there are more than one shape in the input list,
+    or if the list is empty or has one element.
+
+    Parameters
+    ----------
+    graphs : list of nx.Graph or ndarray, or ndarray
+        If list of nx.Graph, each Graph must contain same number of nodes.
+        If list of ndarray, each array must have shape (n_vertices, n_vertices).
+        If ndarray, then array must have shape (n_graphs, n_vertices, n_vertices).
+
+    Returns
+    -------
+    out : ndarray, shape (n_graphs, n_vertices, n_vertices)
+
+    Raises
+    ------
+    ValueError
+        If all graphs do not have same shape, or input list is empty or has
+        one element.
+    """
+    # Convert input to np.arrays
+    # This check is needed because np.stack will always duplicate array in memory.
+    if isinstance(graphs, (list, tuple)):
+        if len(graphs) <= 1:
+            msg = "Input {} must have at least 2 graphs, not {}.".format(
+                type(graphs), len(graphs)
+            )
+            raise ValueError(msg)
+
+        out = [import_graph(g, copy=False) for g in graphs]
+
+        # Check if all arrays have same shape
+        if np.unique([x.shape for x in out]).size != 1:
+            msg = f"All input graphs must have same number of vertices."
+            raise ValueError(msg)
+    elif isinstance(graphs, np.ndarray):
+        if graphs.ndim != 3:
+            msg = f"Input tensor must be 3-dimensional, not {graphs.ndim}-dimensional."
+            raise ValueError(msg)
+        elif graphs.shape[0] <= 1:
+            msg = f"Input tensor must have at least 2 elements, not {graphs.shape[0]}."
+            raise ValueError(msg)
+        out = import_graph(graphs, copy=False)
+    else:
+        msg = f"Input must be a list or ndarray, not {type(graphs)}."
+        raise TypeError(msg)
+
+    return out
 
 
 def is_symmetric(X):
