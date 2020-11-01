@@ -56,7 +56,7 @@ are tutorials for robust statistical hypothesis testing on multiple graphs.
    tutorials/inference/latent_position_test
    tutorials/inference/latent_distribution_test
 
-.. _plot_tutorials: 
+.. _plot_tutorials:
 
 Plotting
 ========
@@ -87,9 +87,13 @@ including an introduction to the module, and how to utilize the seeding feature.
 
 Subgraph
 ========
-The following tutorial demonstrates how to estimate the signal-subgraph of samples of a graph/class model according to either the coherent or incoherent estimator models.
+Statistical estimation of the signal subgraph for a set of graphs of multiple classes,
+done iteratively, non-iteratively, and with coherence. Below are tutorials for finding
+the estimated signal subgraph.
 
 .. toctree::
    :maxdepth: 1
-
-   tutorials/subgraph/subgraph
+      
+   tutorials/subgraph/Screen
+   tutorials/subgraph/ItScreen
+   tutorials/subgraph/Coherence
