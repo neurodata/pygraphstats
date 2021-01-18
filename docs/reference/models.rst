@@ -17,6 +17,8 @@ Stochastic block models
 
 .. autoclass:: DCSBMEstimator
 
+.. autoclass:: HSBMEstimator
+
 Latent position models
 ----------------------
 
