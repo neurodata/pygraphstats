@@ -34,7 +34,7 @@ class SignalSubgraph:
 
     """
 
-    def __construct_contingency(self):
+    def __construct_contingency(self) -> None:
         nverts = np.shape(self.graphs)[0]
         out = np.zeros((nverts, nverts, 2, 2))
         rowsum1 = sum(self.labels)

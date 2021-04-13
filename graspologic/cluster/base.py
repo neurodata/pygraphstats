@@ -3,6 +3,8 @@
 
 from abc import ABC, abstractmethod
 
+import numpy as np
+
 from sklearn.base import BaseEstimator, ClusterMixin
 from sklearn.metrics import adjusted_rand_score
 from sklearn.utils.validation import check_is_fitted
@@ -14,7 +16,7 @@ class BaseCluster(ABC, BaseEstimator, ClusterMixin):
     """
 
     @abstractmethod
-    def fit(self, X, y=None):
+    def fit(self, X: np.ndarray, y=None):
         """
         Compute clusters based on given method.
 

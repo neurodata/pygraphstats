@@ -3,6 +3,8 @@
 
 import math
 from collections import defaultdict
+from typing import Dict, List, Set, Tuple
+from ._node import _Node
 
 
 class _GridBuckets:
@@ -11,23 +13,34 @@ class _GridBuckets:
     than the radius of the largest node in the graph.
     """
 
-    def __init__(self, cell_size):
+    def __init__(self, cell_size: int):
         self.cell_size = cell_size
-        self.grid = defaultdict(list)
+        self.grid: Dict[Tuple[int, int], List[_Node]] = defaultdict(list)
         self.min_x = math.inf
         self.min_y = math.inf
         self.max_x = -math.inf
         self.max_y = -math.inf
 
-    def get_cell(self, x, y):
-        xval = x // self.cell_size
-        yval = y // self.cell_size
-        return xval * self.cell_size, yval * self.cell_size
+    def get_cell(self, x: float, y: float) -> Tuple[int, int]:
+        x_val = int(x // self.cell_size)
+        y_val = int(y // self.cell_size)
+        return x_val * self.cell_size, y_val * self.cell_size
 
-    def get_grid_cells(self, x, y, node_size):
+    def get_grid_cells(
+        self,
+        x: float,
+        y: float,
+        node_size: float
+    ) -> Set[Tuple[int, int]]:
         return self._get_grid_cells(x, y, node_size, False)
 
-    def _get_grid_cells(self, x, y, node_size, update_max=True):
+    def _get_grid_cells(
+        self,
+        x: float,
+        y: float,
+        node_size: float,
+        update_max: bool = True
+    ) -> Set[Tuple[int, int]]:
         """
         Each node will be at least one cell but up to four cells.
         It depends on the grid cell size and the size and location of the node
@@ -51,7 +64,7 @@ class _GridBuckets:
         sw = self.get_cell(min_x, min_y)
         return {nw, ne, se, sw}
 
-    def add_node(self, node):
+    def add_node(self, node: _Node) -> _Node:
         """
         Node to add must have an x, y, and size property
         :param node: The node to add to the grid
@@ -62,7 +75,7 @@ class _GridBuckets:
             self.grid[cell].append(node)
         return node
 
-    def add_node_once(self, node):
+    def add_node_once(self, node: _Node) -> _Node:
         """
         Node to add must have an x, y, and size property
         :param node: The node to add to the grid

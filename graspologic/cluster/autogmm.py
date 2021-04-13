@@ -1,6 +1,8 @@
 # Copyright (c) Microsoft Corporation and contributors.
 # Licensed under the MIT License.
 
+from typing import Any, Dict, List, Optional, Union
+
 import numpy as np
 import pandas as pd
 from sklearn.cluster import AgglomerativeClustering
@@ -45,7 +47,7 @@ class AutoGMMCluster(BaseCluster):
         If label_init is given, min_components must match number of unique labels
         in label_init.
 
-    affinity : {'euclidean','manhattan','cosine','none', 'all' (default)}, optional
+    affinity : {'euclidean','manhattan','cosine','none', 'all' (default)}
         String or list/array describing the type of affinities to use in agglomeration.
         If a string, it must be one of:
 
@@ -67,7 +69,7 @@ class AutoGMMCluster(BaseCluster):
         If the input matrix has a zero row, cosine similarity will be skipped and a warning will
         be thrown.
 
-    linkage : {'ward','complete','average','single', 'all' (default)}, optional
+    linkage : {'ward','complete','average','single', 'all' (default)}
         String or list/array describing the type of linkages to use in agglomeration.
         If a string, it must be one of:
 
@@ -85,7 +87,7 @@ class AutoGMMCluster(BaseCluster):
         If a list/array, it must be a list/array of strings containing only
         'ward', 'complete', 'average', and/or 'single'.
 
-    covariance_type : {'full', 'tied', 'diag', 'spherical', 'all' (default)} , optional
+    covariance_type : {'full', 'tied', 'diag', 'spherical', 'all' (default)}
         String or list/array describing the type of covariance parameters to use.
         If a string, it must be one of:
 
@@ -117,17 +119,17 @@ class AutoGMMCluster(BaseCluster):
         If provided, min_components and ``max_components`` must match the number of
         unique labels given here.
 
-    max_iter : int, optional (default = 100).
+    max_iter : int (default = 100).
         The maximum number of EM iterations to perform.
 
-    selection_criteria : str {"bic" or "aic"}, optional, (default="bic")
-        select the best model based on Bayesian Information Criterion (bic) or
-        Aikake Information Criterion (aic)
-
-    verbose : int, optional (default = 0)
+    verbose : int (default = 0)
         Enable verbose output. If 1 then it prints the current initialization and each
         iteration step. If greater than 1 then it prints also the log probability and
         the time needed for each step.
+
+    selection_criteria : str {"bic" or "aic"}, (default="bic")
+        select the best model based on Bayesian Information Criterion (bic) or
+        Aikake Information Criterion (aic)
 
     max_agglom_size : int or None, optional (default = 2000)
         The maximum number of datapoints on which to do agglomerative clustering as the
@@ -209,18 +211,18 @@ class AutoGMMCluster(BaseCluster):
 
     def __init__(
         self,
-        min_components=2,
-        max_components=10,
-        affinity="all",
-        linkage="all",
-        covariance_type="all",
-        random_state=None,
-        label_init=None,
-        max_iter=100,
-        verbose=0,
-        selection_criteria="bic",
-        max_agglom_size=2000,
-        n_jobs=None,
+        min_components: int = 2,
+        max_components: Optional[int] = 10,
+        affinity: Union[str, np.ndarray, List[str]] = "all",
+        linkage: Union[str, np.ndarray, List[str]] = "all",
+        covariance_type: Union[str, np.ndarray, List[str]] = "all",
+        random_state: Optional[Union[int, np.random.RandomState]] = None,
+        label_init: Optional[Union[np.ndarray, List[int]]] = None,
+        max_iter: int = 100,
+        verbose: int = 0,
+        selection_criteria: str = "bic",
+        max_agglom_size: Optional[int] = 2000,
+        n_jobs: Optional[int] = None,
     ):
         if isinstance(min_components, int):
             if min_components <= 0:
@@ -363,6 +365,9 @@ class AutoGMMCluster(BaseCluster):
         if max_agglom_size is not None and max_agglom_size < 2:
             raise ValueError("Must use at least 2 points for `max_agglom_size`")
 
+        if not isinstance(n_jobs, int) and n_jobs is not None:
+            raise TypeError("`n_jobs` must be an int or None")
+
         self.min_components = min_components
         self.max_components = max_components
         self.affinity = affinity
@@ -376,7 +381,7 @@ class AutoGMMCluster(BaseCluster):
         self.max_agglom_size = max_agglom_size
         self.n_jobs = n_jobs
 
-    def _fit_cluster(self, X, X_subset, y, params, agg_clustering):
+    def _fit_cluster(self, X, X_subset, y, params, agg_clustering) -> Dict[str, Any]:
         label_init = self.label_init
         if label_init is not None:
             onehot = _labels_to_onehot(label_init)

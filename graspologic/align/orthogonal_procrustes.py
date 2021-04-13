@@ -58,7 +58,7 @@ class OrthogonalProcrustes(BaseAlign):
 
         super().__init__()
 
-    def fit(self, X, Y):
+    def fit(self, X: np.ndarray, Y: np.ndarray) -> "OrthogonalProcrustes":
         """
         Uses the two datasets to learn the matrix :attr:`~graspologic.align.OrthogonalProcrustes.Q_` that aligns the
         first dataset with the second.
@@ -94,7 +94,7 @@ class OrthogonalProcrustes(BaseAlign):
         self.score_ = np.linalg.norm(X @ self.Q_ - Y, ord="fro")
         return self
 
-    def fit_transform(self, X, Y):
+    def fit_transform(self, X: np.ndarray, Y: np.ndarray) -> np.ndarray:
         """
         Uses the two datasets to learn the matrix :attr:`~graspologic.align.OrthogonalProcrustes.Q_` that aligns the
         first dataset with the second. Then, transforms the first dataset ``X``

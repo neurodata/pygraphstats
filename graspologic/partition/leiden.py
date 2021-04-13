@@ -159,7 +159,7 @@ def _validate_common_arguments(
     is_weighted: Optional[bool] = None,
     weight_default: float = 1.0,
     check_directed: bool = True,
-):
+) -> None:
     if starting_communities is not None and not isinstance(starting_communities, dict):
         raise TypeError("starting_communities must be a dictionary")
     if not isinstance(extra_forced_iterations, int):
@@ -321,7 +321,7 @@ def leiden(
         graph, is_weighted, weight_attribute, check_directed, weight_default
     )
 
-    _improved, _modularity, partitions = gn.leiden(
+    _improved, _modularity, native_partitions = gn.leiden(
         edges=graph,
         starting_communities=starting_communities,
         resolution=resolution,
@@ -330,6 +330,9 @@ def leiden(
         use_modularity=use_modularity,
         seed=random_seed,
     )
+    
+    # to be fixed in 738, should be Dict[Any, int]
+    partitions: Dict[str, int] = native_partitions
 
     proper_partitions = {
         node_id_mapping[key]: value for key, value in partitions.items()

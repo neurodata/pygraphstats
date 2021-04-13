@@ -5,7 +5,7 @@ import warnings
 from collections import Iterable
 from functools import reduce
 from pathlib import Path
-from typing import Any, List, Optional, Tuple, Union
+from typing import Any, Callable, List, Optional, Tuple, Union
 
 import networkx as nx
 import numpy as np
@@ -18,13 +18,27 @@ from sklearn.utils import check_array, check_consistent_length, column_or_1d
 from sklearn.utils.multiclass import type_of_target, unique_labels
 
 
-def import_graph(graph, copy=True):
+GraphRepresentation = Union[
+    nx.Graph,
+    nx.DiGraph,
+    nx.MultiGraph,
+    nx.MultiDiGraph,
+    np.ndarray,
+    np.memmap,
+    scipy.sparse.csr_matrix
+]
+
+
+def import_graph(
+    graph: GraphRepresentation,
+    copy: bool = True
+) -> Union[np.ndarray, scipy.sparse.csr_matrix]:
     """
     A function for reading a graph and returning a shared data type.
 
     Parameters
     ----------
-    graph: object
+    graph: GraphRepresentation
         Either array-like, shape (n_vertices, n_vertices) numpy array,
         a scipy.sparse.csr_matrix, or an object of type networkx.Graph.
 
@@ -42,13 +56,11 @@ def import_graph(graph, copy=True):
     networkx.Graph, numpy.array
     """
     if isinstance(graph, (nx.Graph, nx.DiGraph, nx.MultiGraph, nx.MultiDiGraph)):
-        out = nx.to_numpy_array(graph, nodelist=sorted(graph.nodes), dtype=np.float)
+        out = nx.to_numpy_array(graph, nodelist=sorted(graph.nodes), dtype=np.float_)
     elif isinstance(graph, (np.ndarray, np.memmap, csr_matrix)):
         shape = graph.shape
         if len(shape) > 3:
-            msg = "Input tensor must have at most 3 dimensions, not {}.".format(
-                len(shape)
-            )
+            msg = f"Input tensor must have at most 3 dimensions, not {len(shape)}."
             raise ValueError(msg)
         elif len(shape) == 3:
             if shape[1] != shape[2]:
@@ -70,17 +82,26 @@ def import_graph(graph, copy=True):
             copy=copy,
         )
     else:
-        msg = "Input must be networkx.Graph, np.array, or scipy.sparse.csr_matrix,\
-        not {}.".format(
-            type(graph)
-        )
+        msg = f"Input must be networkx.Graph, np.array, or " \
+              f"scipy.sparse.csr_matrix,not {type(graph)}."
         raise TypeError(msg)
     return out
 
 
 def import_edgelist(
-    path, extension="edgelist", delimiter=None, nodetype=int, return_vertices=False
-):
+    path: Union[str, Path, Iterable[Union[str, Path]]],
+    extension: str = "edgelist",
+    delimiter: Optional[str] = None,
+    nodetype: Callable[[Any], Any] = int,
+    return_vertices: bool = False
+) -> Union[
+    np.ndarray,
+    List[np.ndarray],
+    Tuple[
+        Union[np.ndarray, List[np.ndarray]],
+        np.ndarray
+    ]
+]:
     """
     Function for reading a single or multiple edgelists. When importing multiple
     edgelists, the union of vertices from all graphs is computed so that each output
@@ -162,23 +183,16 @@ def import_edgelist(
         return out
 
 
-def is_symmetric(X):
+def is_symmetric(X: np.ndarray) -> bool:
     return abs(X - X.T).sum() == 0
 
 
-def is_loopless(X):
+def is_loopless(X: np.ndarray) -> bool:
     return not np.any(np.diag(X) != 0)
 
 
 def is_unweighted(
-    graph: Union[
-        np.ndarray,
-        scipy.sparse.csr_matrix,
-        nx.Graph,
-        nx.DiGraph,
-        nx.MultiGraph,
-        nx.MultiDiGraph,
-    ],
+    graph: GraphRepresentation,
     weight_attribute: Any = "weight",
 ):
     """
@@ -205,7 +219,7 @@ def is_unweighted(
     TypeError
         If the provided graph is not a numpy.ndarray, scipy.sparse.csr_matrix, or nx.Graph
     """
-    if isinstance(graph, np.ndarray):
+    if isinstance(graph, (np.ndarray, np.memmap)):
         return ((graph == 0) | (graph == 1)).all()
     elif isinstance(graph, csr_matrix):
         # brute force.  if anyone has a better way, please PR
@@ -222,11 +236,11 @@ def is_unweighted(
         )
 
 
-def is_almost_symmetric(X, atol=1e-15):
+def is_almost_symmetric(X: np.ndarray, atol: float = 1e-15) -> bool:
     return abs(X - X.T).max() <= atol
 
 
-def symmetrize(graph, method="avg"):
+def symmetrize(graph, method: str = "avg"):
     """
     A function for forcing symmetry upon a graph.
 

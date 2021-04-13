@@ -1,31 +1,39 @@
 # Copyright (c) Microsoft Corporation.
 # Licensed under the MIT license.
 
-from graspologic.layouts.classes import NodePosition
-import math
 import logging
-from sklearn.preprocessing import normalize
-import numpy as np
+import math
+from typing import List, Optional, Set, Tuple
 
+import numpy as np
 from scipy.spatial import distance
+from sklearn.preprocessing import normalize
+
+from ._node import _Node
+from ..classes import NodePosition
 
 _EPSILON = 0.001
 logger = logging.getLogger(__name__)
 
 
-def node_positions_overlap(n1: NodePosition, n2: NodePosition):
-    return is_overlap(n1.x, n1.y, n1.size, n2.x, n2.y, n2.size)
+def node_positions_overlap(node_1: NodePosition, node_2: NodePosition) -> bool:
+    return is_overlap(node_1.x, node_1.y, node_1.size, node_2.x, node_2.y, node_2.size)
 
 
-def is_overlap(x1, y1, s1, x2, y2, s2):
-    min_dist = s1 + s2
-    if abs(x2 - x1) > min_dist or abs(y2 - y1) > min_dist:
+def is_overlap(
+    node_1_x: float,
+    node_1_y: float,
+    node_1_size: float,
+    node_2_x: float,
+    node_2_y: float,
+    node_2_size: float
+) -> bool:  # type: ignore
+    min_dist = node_1_size + node_2_size
+    if abs(node_2_x - node_1_x) > min_dist or abs(node_2_y - node_1_y) > min_dist:
         # shortcut to reduce the amount of math required, the distance calc is more expensive
         return False
-    d = distance.euclidean([x1, y1], [x2, y2])
-    if d <= s1 + s2:
-        return True
-    return False
+    d = distance.euclidean([node_1_x, node_1_y], [node_2_x, node_2_y])
+    return d <= node_1_size + node_2_size
 
 
 def is_overlapping_any_node_and_index(node, new_x, new_y, nodes, start, end):
@@ -59,26 +67,31 @@ def is_overlapping_any_node_and_index_with_grid(
     return idx + start, overlapping
 
 
-def stats_nodes(nodes):
+def stats_nodes(nodes: List[_Node]) -> Tuple[float, float, float, float, float]:
     max_x = -math.inf
     min_x = math.inf
     max_y = -math.inf
     min_y = math.inf
     max_size = -1
-    for gnode in nodes:
-        max_x = max(gnode.x, max_x)
-        max_y = max(gnode.y, max_y)
-        min_x = min(gnode.x, min_x)
-        min_y = min(gnode.y, min_y)
-        max_size = max(gnode.size, max_size)
+    for node in nodes:
+        max_x = max(node.x, max_x)
+        max_y = max(node.y, max_y)
+        min_x = min(node.x, min_x)
+        min_y = min(node.y, min_y)
+        max_size = max(node.size, max_size)
     return min_x, min_y, max_x, max_y, max_size
 
 
-def total_area(min_x, min_y, max_x, max_y):
+def total_area(
+    min_x: float,
+    min_y: float,
+    max_x: float,
+    max_y: float
+) -> float:
     return (max_x - min_x) * (max_y - min_y)
 
 
-def move_point_on_line(a, b, ratio):
+def move_point_on_line(a, b, ratio) -> float:
     npa = np.array(a)
     npb = np.array(b)
     d = npb - npa
@@ -91,24 +104,6 @@ def scale_graph(g, scale_factor):
     for _, n in g.items():
         n.x, n.y = move_point_on_line([0, 0], [n.x, n.y], scale_factor)
     return g
-
-
-def find_center(nodes):
-    num_nodes = len(nodes)
-    if num_nodes <= 0:
-        raise Exception("Zero nodes!")
-
-    min_x, min_y, max_x, max_y, max_size = stats_nodes(nodes)
-    tot_area = total_area(min_x, min_y, max_x, max_y)
-    x, y = 0.0, 0.0
-    # sum X and Y values then devide by number of nodes to get the average (x,y) or center
-    for n in nodes:
-        x += n.x
-        y += n.y
-    # need to fix x and y
-    x = x / num_nodes
-    y = y / num_nodes
-    return x, y, max_size
 
 
 class _QuadNode:
@@ -129,33 +124,67 @@ class _QuadNode:
 
     max_ratio = 0.95
 
-    def __init__(self, nodes, depth, max_nodes_per_quad, parent=None):
+    def __init__(
+        self,
+        nodes: List[_Node],
+        depth: int,
+        max_nodes_per_quad: int,
+        parent: Optional["_QuadNode"] = None
+    ):
+        self.NW = None
+        self.NE = None
+        self.SW = None
+        self.SE = None
+        self.x = 0.0
+        self.y = 0.0
+        self.x_range = 0.0
+        self.y_range = 0.0
+        self.circle_size = 0.0
+        self.square_size = 0.0
+        self.sq_ratio = 0.0
+        self.cir_ratio = 0.0
+        self.total_cells = 0
+        self.min_x = 0.0
+        self.max_x = 0.0
+        self.min_y = 0.0
+        self.max_y = 0.0
+        self.max_size = 0.0
+
         self.nodes = nodes
         self.depth = depth
         self.max_nodes_per_quad = max_nodes_per_quad
         self.is_laid_out = False
         self.parent = parent
+
         self.find_center()
         self.push_to_kids()
+
         self.total_nodes_moved = 0
         self.not_first_choice = 0
 
     def __lt__(self, other):
         return self.x < other.x
 
-    def child_list(self):
+    def child_list(self) -> List["_QuadNode"]:
         return [self.NW, self.NE, self.SW, self.SE]
 
-    def get_total_cells(self, min_x, min_y, max_x, max_y, max_size):
+    def get_total_cells(
+        self,
+        min_x: float,
+        min_y: float,
+        max_x: float,
+        max_y: float,
+        max_size: float
+    ) -> int:
         side_size = max_size * 2.0
         self.x_range = max_x - min_x
         self.y_range = max_y - min_y
         number_of_x_cells = self.x_range // side_size
         number_of_y_cells = self.y_range // side_size
         total_cells = number_of_y_cells * number_of_x_cells
-        return total_cells
+        return int(total_cells)
 
-    def find_center(self):
+    def find_center(self) -> None:
         if len(self.nodes) <= 0:
             raise Exception("Invalid to create a quad node with zero nodes!")
 
@@ -186,9 +215,7 @@ class _QuadNode:
         self.x = self.x / self.num_nodes()
         self.y = self.y / self.num_nodes()
 
-    # print ("depth: %d, size: %d, center %g, %g, min (%g,%g), max(%g,%g)" %(self.depth, len(self.nodes),self.x, self.y,min_x, min_y, max_x, max_y))
-
-    def push_to_kids(self):
+    def push_to_kids(self) -> None:
         if len(self.nodes) <= self.max_nodes_per_quad:
             # if len == nodes then we already have the center and mass initialized because of
             # the calculation done in the constructor
@@ -234,99 +261,38 @@ class _QuadNode:
         for quad in self.child_list():
             if quad:
                 quad.push_to_kids()
-        return
 
-    def num_children(self):
+    def num_children(self) -> int:
         total = 1
         for quad in self.child_list():
             if quad:
                 total += quad.num_children()
         return total
 
-    def num_nodes(self):
+    def num_nodes(self) -> int:
         return len(self.nodes)
 
-    def print_node(self, max_depth):
-        tot_area = total_area(self.min_x, self.min_y, self.max_x, self.max_y)
-        # print (tot_area, min_x, min_y, max_x, max_y)
-        # if tot_area == 0:
-        # 	for n in self.nodes:
-        # 		print(n.x, n.y)
-        # 	tot_area = 0.001
-        tag = "ttttt" if self.circle_size / tot_area > self.max_ratio else ""
-        print(
-            "-" * self.depth,
-            "size: %d, (%g, %g), (%g, %g) cs: %g, tot: %g, ratio: %g, ss: %g, ratio: %g, tag: %s"
-            % (
-                len(self.nodes),
-                self.min_x,
-                self.min_y,
-                self.max_x,
-                self.max_y,
-                self.circle_size,
-                tot_area,
-                self.circle_size / tot_area,
-                self.square_size,
-                self.square_size / tot_area,
-                tag,
-            ),
-        )
-        if self.depth >= max_depth:
-            return
-
-        for quad in self.child_list():
-            if quad:
-                quad.print_node(max_depth)
-
-    def total_circle_size(self):
+    def total_circle_size(self) -> float:
         total_size = 0
         for n in self.nodes:
             total_size += n.size * n.size * math.pi
         return total_size
 
-    def total_square_size(self):
+    def total_square_size(self) -> float:
         total_size = 0
         for n in self.nodes:
             total_size += n.size * n.size * 2 * 2
         return total_size
 
-    def get_stats_for_quad(self, max_depth, stats_list, magnification=10):
-        tot_area = total_area(self.min_x, self.min_y, self.max_x, self.max_y)
-        if tot_area == 0:
-            tot_area = 0.001
-        tag = 5 if self.circle_size / tot_area > self.max_ratio else 0
-        # print ('-'*self.depth, "size: %d, (%g, %g), (%g, %g) cs: %g, tot: %g, ratio: %g, ss: %g, ratio: %g, tag: %s" %(len(self.nodes), self.min_x, self.min_y, self.max_x, self.max_y, self.circle_size, tot_area, self.circle_size/tot_area, self.square_size, self.square_size/tot_area, tag))
-        if self.depth >= max_depth:
-            stats_list.append(
-                [
-                    self.x,
-                    self.y,
-                    self.circle_size / tot_area * magnification,
-                    tag,
-                    self.square_size / tot_area * magnification,
-                ]
-            )
-            return
-
-        has_children = False
-        for quad in [self.NW, self.NE, self.SW, self.SE]:
-            if quad:
-                quad.get_stats_for_quad(max_depth, stats_list, magnification)
-                has_children = True
-        if not has_children:
-            stats_list.append(
-                [
-                    self.x,
-                    self.y,
-                    self.circle_size / tot_area * magnification,
-                    tag,
-                    self.square_size / tot_area * magnification,
-                ]
-            )
-            return
-
-    def find_grid_cell_and_center(self, min_x, min_y, max_size, x, y):
-        # zero the cordinates
+    def find_grid_cell_and_center(
+        self,
+        min_x: float,
+        min_y: float,
+        max_size: float,
+        x: float,
+        y: float
+    ) -> Tuple[int, int, float, float]:
+        # zero the coordinates
         side_size = max_size * 2.0
         zeroed_x = x - min_x
         zeroed_y = y - min_y
@@ -335,9 +301,17 @@ class _QuadNode:
         return x_cell, y_cell, min_x + side_size * x_cell, min_y + side_size * y_cell
 
     def find_free_cell(
-        self, cells, x, y, num_x_cells, num_y_cells, min_x, min_y, max_size
-    ):
-        # zero the cordinates
+        self,
+        cells: Set[Tuple[int, int]],
+        x: float,
+        y: float,
+        num_x_cells: int,
+        num_y_cells: int,
+        min_x: float,
+        min_y: float,
+        max_size: float
+    ) -> Tuple[float, float, float, float]:
+        # zero the coordinates
         square_size = max_size * 2
         new_x, new_y = x, y
         distance_to_move = 1
@@ -346,9 +320,7 @@ class _QuadNode:
         while (new_x, new_y) in cells or not done:
             done = False
             # go right
-            # print ('newx:', new_x+1, 'end x', new_x+distance_to_move+1)
             for new_x in range(new_x + 1, new_x + distance_to_move + 1):
-                # print ("ffc-r (%g,%g) to_move %d"  %(new_x, new_y, distance_to_move))
                 if (
                     not (new_x, new_y) in cells
                     and new_x < num_x_cells
@@ -363,7 +335,6 @@ class _QuadNode:
                 break
             # go up
             for new_y in range(new_y + 1, new_y + distance_to_move + 1):
-                # print ("ffc-u (%g,%g) to_move %d"  %(new_x, new_y, distance_to_move))
                 if (
                     not (new_x, new_y) in cells
                     and new_x < num_x_cells
@@ -378,9 +349,7 @@ class _QuadNode:
             if done:
                 break
             # go left
-            # print ('about to go left, %g, %g' %(new_x, new_y))
             for new_x in range(new_x - 1, new_x - distance_to_move - 1, -1):
-                # print ("ffc-l (%g,%g) to_move %d"  %(new_x, new_y, distance_to_move))
                 if (
                     not (new_x, new_y) in cells
                     and new_x < num_x_cells
@@ -395,7 +364,6 @@ class _QuadNode:
                 break
             # go down
             for new_y in range(new_y - 1, new_y - distance_to_move - 1, -1):
-                # print ("ffc-d (%g,%g) to_move %d"  %(new_x, new_y, distance_to_move))
                 if (
                     not (new_x, new_y) in cells
                     and new_x < num_x_cells
@@ -403,22 +371,29 @@ class _QuadNode:
                     and new_x >= 0
                     and new_y >= 0
                 ):
-                    # print('breaking-d')
                     done = True
                     break
             distance_to_move += 1
             if done:
                 break
             # keep going
-            # print ("ALL FULL", count)
             count += 1
 
         return new_x, new_y, min_x + square_size * new_x, min_y + square_size * new_y
 
-    def layout_node_list(self, min_x, min_y, max_x, max_y, max_size, node_list):
+    def layout_node_list(
+        self,
+        min_x: float,
+        min_y: float,
+        max_x: float,
+        max_y: float,
+        max_size: float,
+        node_list: List[_Node]
+    ) -> int:
         """
-        This method will layout the nodes in the current quad.  If there are more nodes than cells an Exception
-        will be raised.
+        This method will layout the nodes in the current quad.  If there are more nodes
+            than cells an Exception will be raised.
+
         :param min_x:
         :param min_y:
         :param max_x:
@@ -427,7 +402,6 @@ class _QuadNode:
         :param node_list:
         :return:
         """
-        # print ("layout_node_list %d", len(node_list))
         self._mark_laid_out()
         nodes_by_size = sorted(node_list, key=lambda n: n.size, reverse=True)
         largest_size = nodes_by_size[0].size
@@ -440,18 +414,15 @@ class _QuadNode:
         side_size = max_size * 2.0
         x_range = max_x - min_x
         y_range = max_y - min_y
-        number_of_x_cells = x_range // side_size
-        number_of_y_cells = y_range // side_size
+        number_of_x_cells = int(x_range // side_size)
+        number_of_y_cells = int(y_range // side_size)
         total_cells = number_of_y_cells * number_of_x_cells
 
         if num_nodes > total_cells:
             raise Exception(
-                "Too many nodes per Cell for this quad! nodes: %d, cells: %d"
-                % (num_nodes, total_cells)
+                f"Too many nodes per Cell for this quad! nodes: {num_nodes}, "
+                f"cells: {total_cells}"
             )
-
-        # print ("largest_size: %g, x_range: %g, y_range: %g, min(%g, %g), max(%g, %g), x_cells %d, y_cells %d, total_cells: %d, num nodes: %d"
-        #       %(largest_size, self.x_range, self.y_range, min_x, min_y, max_x, max_y, self.number_of_x_cells, self.number_of_y_cells, self.total_cells, num_nodes))
 
         number_overlapping = 0
         for idx, node_to_move in enumerate(nodes_by_size):
@@ -465,14 +436,13 @@ class _QuadNode:
                     placed_node.size,
                 ):
                     number_overlapping += 1
-                    # print ("Is OVERLAPPING!!!!, to_move: (%g,%g) %g, (%g,%g) %g" % (node_to_move.x, node_to_move.y, node_to_move.size, placed_node.x, placed_node.y, placed_node.size))
                     break
             if number_overlapping > 0:
                 break
         if number_overlapping == 0:
             return 0
 
-        cells = {}
+        cells = set()
         for idx, node_to_move in enumerate(nodes_by_size):
             # the first one does not need to move all the rest might need to move
             (
@@ -487,7 +457,6 @@ class _QuadNode:
             self.total_nodes_moved += 1
             if found:
                 # need to find an open cell and then move there.
-                # print ("Occupied Cell: [%d, %d], used: %s , center: (%g, %g)" % (cell_x, cell_y, str(found), cell_center_x, cell_center_y) )
                 cell_x, cell_y, cell_center_x, cell_center_y = self.find_free_cell(
                     cells,
                     cell_x,
@@ -498,17 +467,15 @@ class _QuadNode:
                     min_y,
                     max_size,
                 )
-                # print ("Found Cell: [%d, %d], used: %s , center: (%g, %g)" % (cell_x, cell_y, str(found), cell_center_x, cell_center_y) )
                 self.not_first_choice += 1
             # Just a test to see how many move
-            # node_to_move.color = '#FF0004'
-            cells[(cell_x, cell_y)] = True
+            cells.add((cell_x, cell_y))
             node_to_move.x = cell_center_x
             node_to_move.y = cell_center_y
 
         return number_overlapping
 
-    def _mark_laid_out(self):
+    def _mark_laid_out(self) -> None:
         """
         Recursively mark all children as being laid out already
         :return:

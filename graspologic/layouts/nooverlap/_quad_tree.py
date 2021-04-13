@@ -1,6 +1,8 @@
 # Copyright (c) Microsoft Corporation.
 # Licensed under the MIT license.
+from typing import List
 
+from ._node import _Node
 from ._quad_node import _QuadNode
 
 
@@ -8,22 +10,13 @@ class _QuadTree:
     # used to hold objects that have x, y, and mass property
     # nodes = []
 
-    def __init__(self, nodes, max_nodes_per_quad):
+    def __init__(
+        self,
+        nodes: List[_Node],
+        max_nodes_per_quad: int
+    ):
         self.nodes = nodes
         self.root = _QuadNode(nodes, 0, max_nodes_per_quad, None)
-
-    def dump_one_level_to_csv(self, level, filename, magnification):
-        stats = []
-        self.root.get_stats_for_quad(level, stats, magnification)
-        # print(type(stats))
-        # print(len(stats))
-        with open(filename, "w", encoding="utf-8", newline="") as ofile:
-            writer = csv.writer(ofile)
-            for idx, row in enumerate(stats):
-                color = "blue"
-                if row[3] > 0:
-                    color = "red"
-                writer.writerow([idx] + row[:3] + [0, color])
 
     def get_quad_density_list(self):
         density_list = self.root.get_density_list()

@@ -205,7 +205,7 @@ def _largest_connected_component(graph: nx.Graph) -> nx.Graph:
     return graph.subgraph(largest_component).copy()
 
 
-def _approximate_prune(graph: nx.Graph, max_edges_to_keep: int = 1000000):
+def _approximate_prune(graph: nx.Graph, max_edges_to_keep: int = 1000000) -> None:
     num_edges = len(graph.edges())
     logger.info(f"num edges: {num_edges}")
 

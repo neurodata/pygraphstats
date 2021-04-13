@@ -50,21 +50,20 @@ def _scale_node_sizes_for_rendering(
     spatial_domain: Tuple[float, float],
     spatial_range: Tuple[float, float],
     dpi: float,
-):
-    """scale the size again to match the rendered pixel range
+) -> List[float]:
+    """
+    Scale the size again to match the rendered pixel range
     we would expect this to be handled by the underlying viz framework, but it isn't, size is specified
     as the bounding box in points of the rendered output, so we need to transform our size to match.
 
     There are 72 points per inch. Multiplying by 72 / dpi converts from pixels to points.
     """
     spatial_domain = (0, spatial_domain[1] - spatial_domain[0])
-    return list(
-        map(
-            lambda s: _scale_value(spatial_domain, spatial_range, s * 2 * 72.0 / dpi)
-            ** 2,
-            sizes,
-        )
-    )
+    return [
+        _scale_value(spatial_domain, spatial_range, s * 2 * 72.0 / dpi) ** 2
+        for s
+        in sizes
+    ]
 
 
 def _draw_graph(
@@ -80,7 +79,7 @@ def _draw_graph(
     vertex_shape: str = "o",
     arrows: bool = False,
     dpi: int = 100,
-):
+) -> None:
     if len(positions) != len(graph.nodes()):
         raise ValueError(
             f"The number of positions provided {len(positions)} is not the same as the "
@@ -168,7 +167,7 @@ def show_graph(
     vertex_shape: str = "o",
     arrows: bool = False,
     dpi: int = 500,
-):
+) -> None:
     """
     Renders and displays a graph.
 
@@ -249,7 +248,7 @@ def save_graph(
     vertex_shape: str = "o",
     arrows: bool = False,
     dpi: int = 100,
-):
+) -> None:
     """
     Renders a graph to file.
 

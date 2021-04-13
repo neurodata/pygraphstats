@@ -22,19 +22,19 @@ def _graph_from_file(
         if skip_header is True:
             next(edge_io)
         for line in edge_io:
-            source, target, weight = line.strip().split(",")
-            weight = float(weight)
+            source, target, weight_str = line.strip().split(",")
+            weight: float = float(weight_str)
             if graph.has_edge(source, target):
                 weight += graph[source][target]["weight"]
             graph.add_edge(source, target, weight=weight)
     return graph
 
 
-def _ensure_output_dir(path: str):
+def _ensure_output_dir(path: str) -> None:
     Path(path).parent.mkdir(parents=True, exist_ok=True)
 
 
-def _location(path: str, positions: List[NodePosition], colors: Dict[Any, str]):
+def _location(path: str, positions: List[NodePosition], colors: Dict[Any, str]) -> None:
     with open(path, "w") as node_positions_out:
         print("id,x,y,size,community,color", file=node_positions_out)
         for position in positions:
@@ -47,7 +47,7 @@ def _location(path: str, positions: List[NodePosition], colors: Dict[Any, str]):
 
 def _output(
     arguments: argparse.Namespace, graph: nx.Graph, positions: List[NodePosition]
-):
+) -> None:
     partitions = {position.node_id: position.community for position in positions}
     color_map = categorical_colors(partitions)
     if arguments.image_file is not None:
@@ -56,7 +56,7 @@ def _output(
         _location(arguments.location_file, positions, color_map)
 
 
-def _tsne(arguments: argparse.Namespace):
+def _tsne(arguments: argparse.Namespace) -> None:
     valid_args(arguments)
     graph = _graph_from_file(arguments.edge_list, arguments.skip_header)
     adjust_overlaps = not arguments.allow_overlaps
@@ -70,7 +70,7 @@ def _tsne(arguments: argparse.Namespace):
     _output(arguments, graph, positions)
 
 
-def _umap(arguments: argparse.Namespace):
+def _umap(arguments: argparse.Namespace) -> None:
     valid_args(arguments)
     graph = _graph_from_file(arguments.edge_list, arguments.skip_header)
     adjust_overlaps = not arguments.allow_overlaps
@@ -80,7 +80,7 @@ def _umap(arguments: argparse.Namespace):
     _output(arguments, graph, positions)
 
 
-def _render(arguments: argparse.Namespace):
+def _render(arguments: argparse.Namespace) -> None:
     positions = []
     node_colors = {}
     with open(arguments.location_file, "r") as location_io:
@@ -300,7 +300,7 @@ def _parser() -> argparse.ArgumentParser:
     return root_parser
 
 
-def valid_args(args: argparse.Namespace):
+def valid_args(args: argparse.Namespace) -> None:
     if args.image_file is None and args.location_file is None:
         print(
             "error: --image_file or --location_file must be provided", file=sys.stderr
@@ -312,7 +312,7 @@ def valid_args(args: argparse.Namespace):
         _ensure_output_dir(args.image_file)
 
 
-def main():
+def main() -> None:
     parser = _parser()
 
     args = parser.parse_args()

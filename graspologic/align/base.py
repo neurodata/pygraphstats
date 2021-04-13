@@ -1,10 +1,14 @@
 # Copyright (c) Microsoft Corporation and contributors.
 # Licensed under the MIT License.
 
+from typing import Tuple, TypeVar
+
 import numpy as np
 from abc import abstractmethod
 from sklearn.utils import check_array
 from sklearn.base import BaseEstimator
+
+Self = TypeVar("Self", bound="BaseAlign")
 
 
 class BaseAlign(BaseEstimator):
@@ -19,10 +23,10 @@ class BaseAlign(BaseEstimator):
 
     """
 
-    def __init__(self):
+    def __init__(self) -> None:
         pass
 
-    def _check_datasets(self, X, Y):
+    def _check_datasets(self, X: np.ndarray, Y: np.ndarray) -> Tuple[np.ndarray, np.ndarray]:
         """
         Ensures that the datasets are numpy, 2d, finite, and have the same
         number of components. Does not check for same number of vertices.
@@ -45,7 +49,7 @@ class BaseAlign(BaseEstimator):
         return X, Y
 
     @abstractmethod
-    def fit(self, X, Y):
+    def fit(self: Self, X: np.ndarray, Y: np.ndarray) -> Self:
         """
         Uses the two datasets to learn the matrix :attr:`~graspologic.align.BaseAlign.Q_` that aligns the
         first dataset with the second.
@@ -65,7 +69,7 @@ class BaseAlign(BaseEstimator):
         """
         pass
 
-    def transform(self, X):
+    def transform(self, X: np.ndarray) -> np.ndarray:
         """
         Transforms the dataset ``X`` using the learned matrix :attr:`~graspologic.align.BaseAlign.Q_`. This may
         be the same as the first dataset as in :func:`~graspologic.align.BaseAlign.fit`, or a new dataset.
@@ -95,9 +99,10 @@ class BaseAlign(BaseEstimator):
                 f"while vectors in fit had {self.Q_.shape[0]} dimensions."
             )
             raise ValueError(msg)
-        return X @ self.Q_
+        result: np.ndarray = X @ self.Q_
+        return result
 
-    def fit_transform(self, X, Y):
+    def fit_transform(self, X: np.ndarray, Y: np.ndarray) -> np.ndarray:
         """
         Uses the two datasets to learn the matrix :attr:`~graspologic.align.BaseAlign.Q_` that aligns the
         first dataset with the second. Then, transforms the first dataset ``X``

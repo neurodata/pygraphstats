@@ -1,6 +1,8 @@
 # Copyright (c) Microsoft Corporation and contributors.
 # Licensed under the MIT License.
 
+from typing import Optional, Tuple, Union
+
 import ot
 import numpy as np
 from sklearn.utils import check_array
@@ -152,13 +154,13 @@ class SeedlessProcrustes(BaseAlign):
 
     def __init__(
         self,
-        optimal_transport_lambda=0.1,
-        optimal_transport_eps=0.01,
-        optimal_transport_num_reps=1000,
-        iterative_num_reps=100,
-        init="2d",
-        initial_Q=None,
-        initial_P=None,
+        optimal_transport_lambda: float = 0.1,
+        optimal_transport_eps: float = 0.01,
+        optimal_transport_num_reps: int = 1000,
+        iterative_num_reps:int = 100,
+        init: str = "2d",
+        initial_Q: Optional[np.ndarray] = None,
+        initial_P: Optional[np.ndarray] = None,
     ):
         # check optimal_transport_lambda argument
         if type(optimal_transport_lambda) is not float:
@@ -262,7 +264,7 @@ class SeedlessProcrustes(BaseAlign):
         self.initial_Q = initial_Q
         self.initial_P = initial_P
 
-    def _optimal_transport(self, X, Y, Q):
+    def _optimal_transport(self, X: np.ndarray, Y: np.ndarray, Q: np.ndarray) -> np.ndarray:
         # "E step" of the SeedlessProcrustes.
         n, d = X.shape
         m, _ = Y.shape
@@ -272,7 +274,9 @@ class SeedlessProcrustes(BaseAlign):
         cost_matrix = (
             np.linalg.norm((X @ Q).reshape(n, 1, d) - Y.reshape(1, m, d), axis=2) ** 2
         )
-        P = ot.sinkhorn(
+        # Note: the type info on ot.sinkhorn can support a return type of Tuple[np.ndarray, Dict[str, Any]], but only
+        # if this function is called with log=True, which we aren't doing.
+        P: np.ndarray = ot.sinkhorn(
             a=probability_mass_X,
             b=probability_mass_Y,
             M=cost_matrix,
@@ -282,28 +286,34 @@ class SeedlessProcrustes(BaseAlign):
         )
         return P
 
-    def _procrustes(self, X, Y, P):
+    def _procrustes(self, X: np.ndarray, Y: np.ndarray, P: np.ndarray) -> np.ndarray:
         # "M step" of the SeedlessProcurstes.
         aligner = OrthogonalProcrustes()
-        Q = aligner.fit(X, P @ Y).Q_
+        Q: np.ndarray = aligner.fit(X, P @ Y).Q_
         return Q
 
-    def _iterative_ot(self, X, Y, Q):
+    def _iterative_ot(self, X: np.ndarray, Y: np.ndarray, Q: np.ndarray) -> Tuple[np.ndarray, np.ndarray]:
         # this P is not used. it is set to default in case numreps=0
-        P = np.ones((X.shape[0], Y.shape[0])) / (X.shape[0] * Y.shape[0])
+        P: np.ndarray = np.ones((X.shape[0], Y.shape[0])) / (X.shape[0] * Y.shape[0])
         for i in range(self.iterative_num_reps):
             P = self._optimal_transport(X, Y, Q)
             Q = self._procrustes(X, Y, P)
         return P, Q
 
-    def _compute_objective(self, X, Y, Q=None, P=None):
+    def _compute_objective(
+            self,
+            X: np.ndarray,
+            Y: np.ndarray,
+            Q: Optional[np.ndarray] = None,
+            P: Optional[np.ndarray] = None
+    ) -> Union[float, np.ndarray]:
         if Q is None:
             Q = self.Q_
         if P is None:
             P = self.P_
         return np.linalg.norm(X @ Q - P @ Y, ord="fro")
 
-    def fit(self, X, Y):
+    def fit(self, X: np.ndarray, Y: np.ndarray) -> "SeedlessProcrustes":
         """
         Uses the two datasets to learn the matrix `self.Q_` that aligns the
         first dataset with the second.
@@ -360,7 +370,7 @@ class SeedlessProcrustes(BaseAlign):
         return self
 
 
-def _sign_flip_matrix_from_int(val_int, d):
+def _sign_flip_matrix_from_int(val_int: int, d: int) -> np.ndarray:
     val_bin = bin(val_int)[2:]
     val_bin = "0" * (d - len(val_bin)) + val_bin
     return np.diag(np.array([(float(i) - 0.5) * -2 for i in val_bin]))
