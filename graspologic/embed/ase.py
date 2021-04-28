@@ -3,6 +3,8 @@
 
 import warnings
 import numpy as np
+from typing import List, Optional, Union
+from numpy.typing import ArrayLike
 from sklearn.utils.validation import check_is_fitted
 import networkx as nx
 
@@ -116,13 +118,13 @@ class AdjacencySpectralEmbed(BaseSpectralEmbed):
 
     def __init__(
         self,
-        n_components=None,
-        n_elbows=2,
-        algorithm="randomized",
-        n_iter=5,
-        check_lcc=True,
-        diag_aug=True,
-        concat=False,
+        n_components: Optional[int] = None,
+        n_elbows: int = 2,
+        algorithm: str = "randomized",
+        n_iter: int = 5,
+        check_lcc: bool = True,
+        diag_aug: bool = True,
+        concat: bool = False,
     ):
         super().__init__(
             n_components=n_components,
@@ -138,7 +140,7 @@ class AdjacencySpectralEmbed(BaseSpectralEmbed):
         self.diag_aug = diag_aug
         self.is_fitted_ = False
 
-    def fit(self, graph, y=None):
+    def fit(self, graph: Union[ArrayLike, nx.Graph], y: None = None) -> "AdjacencySpectralEmbed":
         """
         Fit ASE model to input graph
 
@@ -180,7 +182,9 @@ class AdjacencySpectralEmbed(BaseSpectralEmbed):
         self.is_fitted_ = True
         return self
 
-    def transform(self, X):
+    def transform(
+        self, X: Union[np.ndarray, Tuple[np.ndarray, np.ndarray]]
+    ) -> Union[np.ndarray, Tuple[np.ndarray, np.ndarray]]:
         """
         Obtain latent positions from an adjacency matrix or matrix of out-of-sample
         vertices. For more details on transforming out-of-sample vertices, see the

@@ -3,6 +3,8 @@
 
 from abc import abstractmethod
 
+from typing import List, Optional, Union
+
 import numpy as np
 from sklearn.base import BaseEstimator
 
@@ -60,12 +62,12 @@ class BaseSpectralEmbed(BaseEstimator):
 
     def __init__(
         self,
-        n_components=None,
-        n_elbows=2,
-        algorithm="randomized",
-        n_iter=5,
-        check_lcc=True,
-        concat=False,
+        n_components: Optional[int] = None,
+        n_elbows: int = 2,
+        algorithm: str = "randomized",
+        n_iter: int = 5,
+        check_lcc: bool = True,
+        concat: bool = False,
     ):
         self.n_components = n_components
         self.n_elbows = n_elbows
@@ -109,7 +111,7 @@ class BaseSpectralEmbed(BaseEstimator):
         return True
 
     @abstractmethod
-    def fit(self, graph, y=None):
+    def fit(self, graph: Union[np.ndarray, networkx.Graph], y=None):
         """
         A method for embedding.
 
@@ -147,7 +149,7 @@ class BaseSpectralEmbed(BaseEstimator):
             else:
                 return self.latent_left_, self.latent_right_
 
-    def fit_transform(self, graph, y=None):
+    def fit_transform(self, graph: Union[np.ndarray, networkx.Graph], y=None):
         """
         Fit the model with graphs and apply the transformation.
 
@@ -192,7 +194,7 @@ class BaseEmbedMulti(BaseSpectralEmbed):
             raise TypeError("`diag_aug` must be of type bool")
         self.diag_aug = diag_aug
 
-    def _check_input_graphs(self, graphs):
+    def _check_input_graphs(self, graphs: Union[List[nx.Graph], List[np.ndarray], np.ndarray]) -> np.ndarray:
         """
         Checks if all graphs in list have same shapes.
 
@@ -247,7 +249,7 @@ class BaseEmbedMulti(BaseSpectralEmbed):
 
         return out
 
-    def _diag_aug(self, graphs):
+    def _diag_aug(self, graphs: Union[List[nx.Graph], List[np.ndarray], np.ndarray]) -> Union[List[np.ndarray], np.ndarray]:
         """
         Augments the diagonal off each input graph. Returns the original
         input object type.

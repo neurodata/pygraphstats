@@ -1,6 +1,9 @@
 # Copyright (c) Microsoft Corporation and contributors.
 # Licensed under the MIT License.
 
+
+from typing import List, Optional, Union
+
 import numpy as np
 from sklearn.utils.validation import check_is_fitted
 
@@ -106,13 +109,13 @@ class MultipleASE(BaseEmbedMulti):
 
     def __init__(
         self,
-        n_components=None,
-        n_elbows=2,
-        algorithm="randomized",
-        n_iter=5,
-        scaled=True,
-        diag_aug=True,
-        concat=False,
+        n_components: Optional[int] = None,
+        n_elbows: int = 2,
+        algorithm: str = "randomized",
+        n_iter: int = 5,
+        scaled: bool = True,
+        diag_aug: bool = True,
+        concat: bool = False,
     ):
         if not isinstance(scaled, bool):
             msg = "scaled must be a boolean, not {}".format(scaled)

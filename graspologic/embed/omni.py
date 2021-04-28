@@ -5,12 +5,14 @@ import warnings
 
 import numpy as np
 
+from typing import List, Optional
+
 from ..utils import import_graph, is_fully_connected
 from .base import BaseEmbedMulti
 from scipy.sparse import isspmatrix_csr
 
 
-def _get_omni_matrix(graphs):
+def _get_omni_matrix(graphs: List[np.ndarray]):
     """
     Helper function for creating the omnibus matrix.
 
@@ -132,13 +134,13 @@ class OmnibusEmbed(BaseEmbedMulti):
 
     def __init__(
         self,
-        n_components=None,
-        n_elbows=2,
-        algorithm="randomized",
-        n_iter=5,
-        check_lcc=True,
-        diag_aug=True,
-        concat=False,
+        n_components: Optional[int] = None,
+        n_elbows: Optional[int] = 2,
+        algorithm: Optional[str] = "randomized",
+        n_iter: Optional[int] = 5,
+        check_lcc: Optional[bool] = True,
+        diag_aug: Optional[bool] = True,
+        concat: Optional[bool] = False,
     ):
         super().__init__(
             n_components=n_components,
