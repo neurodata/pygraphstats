@@ -50,6 +50,7 @@ clustering algorithms, as well as the advantages of these to comparable implemen
 
    clustering/autogmm
    clustering/kclust
+   clustering/divisive_cluster
 
 .. _embed_tutorials:
 
