@@ -10,6 +10,7 @@ from graspologic.plot.plot import (
     pairplot,
     _sort_inds,
     pairplot_with_gmm,
+    binary_heatmap,
 )
 from graspologic.simulations.simulations import er_np, sbm
 
@@ -90,19 +91,20 @@ def test_common_inputs():
         gridplot([X], hier_label_fontsize="f")
 
 
-def test_heatmap_inputs():
+@pytest.mark.parametrize("plot_fun", [heatmap, binary_heatmap])
+def test_heatmap_inputs(plot_fun):
     """
     test parameter checks
     """
     X = np.random.rand(10, 10)
 
     with pytest.raises(TypeError):
-        heatmap(X="input")
+        plot_fun(X="input")
 
     # transform
     with pytest.raises(ValueError):
         transform = "bad transform"
-        heatmap(X, transform=transform)
+        plot_fun(X, transform=transform)
 
     # cmap
     with pytest.raises(TypeError):
@@ -117,10 +119,11 @@ def test_heatmap_inputs():
     # cbar
     with pytest.raises(TypeError):
         cbar = 1
-        heatmap(X, cbar=cbar)
+        plot_fun(X, cbar=cbar)
 
 
-def test_heatmap_output():
+@pytest.mark.parametrize("plot_fun", [heatmap, binary_heatmap])
+def test_heatmap_output(plot_fun):
     """
     simple function to see if plot is made without errors
     """
@@ -128,12 +131,28 @@ def test_heatmap_output():
     xticklabels = ["Dimension {}".format(i) for i in range(10)]
     yticklabels = ["Dimension {}".format(i) for i in range(10)]
 
-    fig = heatmap(X, transform="log", xticklabels=xticklabels, yticklabels=yticklabels)
-    fig = heatmap(X, transform="zero-boost")
-    fig = heatmap(X, transform="simple-all")
-    fig = heatmap(X, transform="simple-nonzero")
-    fig = heatmap(X, transform="binarize")
+    fig = plot_fun(X, transform="log", xticklabels=xticklabels, yticklabels=yticklabels)
+    fig = plot_fun(X, transform="zero-boost")
+    fig = plot_fun(X, transform="simple-all")
+    fig = plot_fun(X, transform="simple-nonzero")
+    fig = plot_fun(X, transform="binarize")
     fig = heatmap(X, cmap="gist_rainbow")
+
+
+def test_binary_heatmap_params():
+    X = er_np(10, 0.5)
+
+    with pytest.raises(ValueError):
+        binary_heatmap(X, colors=["white"])
+
+    with pytest.raises(ValueError):
+        binary_heatmap(X, colors=["white", "white", "black"])
+
+    with pytest.raises(ValueError):
+        binary_heatmap(X, colorbar_ticklabels="1")
+
+    with pytest.raises(ValueError):
+        binary_heatmap(X, colorbar_ticklabels=["one", "two", "wrong"])
 
 
 def test_gridplot_inputs():

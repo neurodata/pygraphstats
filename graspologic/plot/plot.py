@@ -1,6 +1,7 @@
 # Copyright (c) Microsoft Corporation and contributors.
 # Licensed under the MIT License.
 
+import warnings
 import matplotlib as mpl
 import matplotlib.pyplot as plt
 import numpy as np
@@ -262,18 +263,22 @@ def heatmap(
         if len(xticklabels) != X.shape[1]:
             msg = "xticklabels must have same length {}.".format(X.shape[1])
             raise ValueError(msg)
-    elif not isinstance(xticklabels, bool):
-        msg = "xticklabels must be a bool or a list, not {}".format(type(xticklabels))
+
+    elif not isinstance(xticklabels, (bool, int)):
+        msg = "xticklabels must be a bool, int, or a list, not {}".format(
+            type(xticklabels)
+        )
         raise TypeError(msg)
 
     if isinstance(yticklabels, list):
         if len(yticklabels) != X.shape[0]:
             msg = "yticklabels must have same length {}.".format(X.shape[0])
             raise ValueError(msg)
-    elif not isinstance(yticklabels, bool):
-        msg = "yticklabels must be a bool or a list, not {}".format(type(yticklabels))
+    elif not isinstance(yticklabels, (bool, int)):
+        msg = "yticklabels must be a bool, int, or a list, not {}".format(
+            type(yticklabels)
+        )
         raise TypeError(msg)
-
     # Handle cmap
     if not isinstance(cmap, (str, list, Colormap)):
         msg = "cmap must be a string, list of colors, or matplotlib.colors.Colormap,"
@@ -290,6 +295,11 @@ def heatmap(
     if not isinstance(cbar, bool):
         msg = "cbar must be a bool, not {}.".format(type(center))
         raise TypeError(msg)
+
+    # Warning on labels
+    if (inner_hier_labels is None) and (outer_hier_labels is not None):
+        msg = "outer_hier_labels requires inner_hier_labels to be used."
+        warnings.warn(msg)
 
     arr = import_graph(X)
 
@@ -339,6 +349,53 @@ def heatmap(
             else:
                 _plot_groups(plot, arr, inner_hier_labels, fontsize=hier_label_fontsize)
     return plot
+
+
+def binary_heatmap(
+    X, colors=["white", "black"], colorbar_ticklabels=["No Edge", "Edge"], **kwargs
+):
+    """
+    Plots an unweighted graph as a black-and-white matrix
+    with a binary colorbar.
+
+    Takes the same keyword arguments as ``plot.heatmap``.
+
+    Parameters
+    ----------
+    X : nx.Graph or np.ndarray object
+        Unweighted graph or numpy matrix to plot.
+
+    colors : list-like or np.ndarray
+        A list of exactly two colors to use for the heatmap.
+
+    colorbar_ticklabels : list-like
+        Binary labels to use in the colorbar.
+
+    **kwargs : dict, optional
+        All keyword arguments in ``plot.heatmap``.
+
+    """
+    if len(colors) != 2:
+        raise ValueError("Colors must be length 2")
+    if "center" in kwargs:
+        raise ValueError("Center is not allowed for binary heatmaps.")
+    if "cmap" in kwargs:
+        raise ValueError(
+            "cmap is not allowed in a binary heatmap. To change colors, use the `colors` parameter."
+        )
+    if not (
+        isinstance(colorbar_ticklabels, (list, tuple)) and len(colorbar_ticklabels) == 2):
+        raise ValueError("colorbar_ticklabels must be list-like and length 2.")
+
+    cmap = mpl.colors.ListedColormap(colors)
+    ax = heatmap(X, center=None, cmap=cmap, **kwargs)
+    colorbar = ax.collections[0].colorbar
+    cbar = kwargs.setdefault("cbar", True)
+    if cbar:
+        colorbar.set_ticks([0.25, 0.75])
+        colorbar.set_ticklabels(colorbar_ticklabels)
+        colorbar.ax.set_frame_on(True)
+    return ax
 
 
 def gridplot(
@@ -1267,6 +1324,8 @@ def _unique_like(vals):
 # assume that the graph has already been plotted in sorted form
 def _plot_groups(ax, graph, inner_labels, outer_labels=None, fontsize=30):
     inner_labels = np.array(inner_labels)
+    if outer_labels is not None:
+        outer_labels = np.array(outer_labels)
     plot_outer = True
     if outer_labels is None:
         outer_labels = np.ones_like(inner_labels)

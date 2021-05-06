@@ -6,6 +6,7 @@ import matplotlib as mpl
 
 from .plot import (
     heatmap,
+    binary_heatmap,
     gridplot,
     pairplot,
     pairplot_with_gmm,
@@ -17,6 +18,7 @@ from .plot_matrix import adjplot, matrixplot
 
 __all__ = [
     "heatmap",
+    "binary_heatmap",
     "gridplot",
     "pairplot",
     "pairplot_with_gmm",
