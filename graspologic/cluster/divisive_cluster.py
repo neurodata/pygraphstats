@@ -13,7 +13,7 @@ from .autogmm import AutoGMMCluster
 from .kclust import KMeansCluster
 
 
-def _check_common_inputs(min_components, max_components, cluster_kws):
+def _check_common_inputs(min_components, max_components, cluster_kws, embed_kws):
     if not isinstance(min_components, int):
         raise TypeError("min_components must be an int")
     elif min_components < 1:
@@ -25,6 +25,10 @@ def _check_common_inputs(min_components, max_components, cluster_kws):
         raise ValueError("max_components must be > 0")
     elif max_components < min_components:
         raise ValueError("max_components must be >= min_components")
+
+    if embed_kws is not None:
+        if not isinstance(embed_kws, dict):
+            raise TypeError("embed_kws must be a dict")
 
     if not isinstance(cluster_kws, dict):
         raise TypeError("cluster_kws must be a dict")
@@ -115,7 +119,7 @@ class DivisiveCluster(NodeMixin, BaseEstimator):
         delta_criter=0,
     ):
 
-        _check_common_inputs(min_components, max_components, cluster_kws)
+        _check_common_inputs(min_components, max_components, cluster_kws, None)
 
         if cluster_method not in ["gmm", "kmeans"]:
             msg = "clustering method must be one of"

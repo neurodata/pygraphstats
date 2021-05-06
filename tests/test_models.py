@@ -10,6 +10,7 @@ from graspologic.models import (
     SBMEstimator,
     RDPGEstimator,
     DCEREstimator,
+    HSBMEstimator,
 )
 from graspologic.simulations import er_np, sbm, sample_edges
 from graspologic.utils import cartesian_product, is_symmetric
@@ -434,6 +435,178 @@ class TestDCSBM:
         assert e._n_parameters() == (n_verts + 10)
 
 
+class TestHSBM:
+    @classmethod
+    def setup_class(cls):
+        # a simple 2-level random graph with 2 block
+        # each of which contains 2 blocks
+        np.random.seed(9)
+        n = np.array([100, 100]).astype(int)
+        block_labels = _n_to_labels(n)
+        n_verts = np.sum(n)
+        global_p = 0.01
+        prop = np.array([[0.5, 0.5], [0.5, 0.5]])
+        B = [np.array([[0.5, 0.1], [0.1, 0.6]]), np.array([[0.8, 0.1], [0.1, 0.8]])]
+
+        graph = er_np(n_verts, global_p)
+        for i, n_sub_verts in enumerate(n):
+            p = prop[i, :]
+            n_vec = (n_sub_verts * p).astype(int)
+            subgraph = sbm(n_vec, B[i])
+            inds = block_labels == i
+            graph[np.ix_(inds, inds)] = subgraph
+
+        labels = np.vstack((np.repeat((0, 1), 100), np.repeat((0, 1, 2, 3), 50))).T
+        B_full = np.zeros((4, 4)) + 0.01
+        B_full[:2, :2] = B[0]
+        B_full[2:4, 2:4] = B[1]
+        p_mat_lvl1 = _block_to_full(B_full, labels[:, 0], (200, 200))
+        p_mat_lvl1 -= np.diag(np.diag(p_mat_lvl1))
+        p_mat_lvl2 = _block_to_full(B_full, labels[:, 1], (200, 200))
+        p_mat_lvl2 -= np.diag(np.diag(p_mat_lvl2))
+        p_mat = [p_mat_lvl1, p_mat_lvl2]
+        cls.graph = graph
+        cls.p_mat = p_mat
+        cls.labels = labels
+        cls.B = B
+
+    def test_HSBM_inputs(self):
+        # directed not bool
+        with pytest.raises(TypeError):
+            HSBMEstimator(directed="1")
+
+        # loops not bool
+        with pytest.raises(TypeError):
+            HSBMEstimator(loops=6)
+
+        # min_components not integer
+        with pytest.raises(TypeError):
+            HSBMEstimator(min_components="1")
+
+        # min_components < 1
+        with pytest.raises(ValueError):
+            HSBMEstimator(min_components=0)
+
+        # max_components not integer
+        with pytest.raises(TypeError):
+            HSBMEstimator(max_components="1")
+
+        # max_components < min_components
+        with pytest.raises(ValueError):
+            HSBMEstimator(min_components=1, max_components=0)
+
+        # cluster_method not in ['gmm', 'kmeans']
+        with pytest.raises(ValueError):
+            HSBMEstimator(cluster_method="graspologic")
+
+        # embed_method not in ['ase', 'lse']
+        with pytest.raises(ValueError):
+            HSBMEstimator(cluster_method="graspologic")
+
+        # delta_criter negative
+        with pytest.raises(ValueError):
+            HSBMEstimator(delta_criter=-1)
+
+        # cluster_kws not a dict
+        with pytest.raises(TypeError):
+            HSBMEstimator(cluster_kws=0)
+
+        # embed_kws not a dict
+        with pytest.raises(TypeError):
+            HSBMEstimator(embed_kws=0)
+
+        # Generate random graph
+        graph = er_np(50, 0.01)
+        # max_components > n_verts
+        with pytest.raises(ValueError):
+            hsbme = HSBMEstimator(max_components=51)
+            hsbme.fit(graph)
+
+        # y with invalid shape
+        y = np.ones((49, 1))
+        with pytest.raises(ValueError):
+            hsbme = HSBMEstimator()
+            hsbme.fit(graph, y=y)
+
+    def test_HSBM_fit_supervised(self):
+        graph = self.graph
+        B = self.B
+        hsbm = HSBMEstimator(max_level=2)
+        labels = self.labels
+        hsbm.fit(graph, labels)
+        B_hat = hsbm.block_p_[1]
+        assert_allclose(B_hat[:2, :2], B[0], atol=0.1)
+        assert_allclose(B_hat[2:4, 2:4], B[1], atol=0.1)
+
+    def _test_HSBM_fit_unsupervised(self, **params):
+        hsbm = HSBMEstimator(max_level=2, **params)
+        graph = self.graph
+        labels = self.labels
+        p_mat = self.p_mat
+        hsbm.fit(graph)
+        y = hsbm.vertex_assignments_
+        assert adjusted_rand_score(labels[:, 0], y[:, 0]) > 0.95
+        assert adjusted_rand_score(labels[:, 1], y[:, 1]) > 0.95
+        assert_allclose(p_mat[0], hsbm.p_mat_[0], atol=0.19)
+        assert_allclose(p_mat[1], hsbm.p_mat_[1], atol=0.1)
+
+    def test_HSBM_fit_unsupervised_reembed(self):
+        self._test_HSBM_fit_unsupervised(reembed=True)
+
+    def test_HSBM_fit_unsupervised_no_reembed(self):
+        self._test_HSBM_fit_unsupervised(reembed=False)
+
+    def test_HSBM_sample(self):
+        estimator = HSBMEstimator(max_level=2)
+        g = self.graph
+        p_mat = self.p_mat
+        labels = self.labels
+        with pytest.raises(NotFittedError):
+            estimator.sample()
+
+        estimator.fit(g, y=labels)
+        with pytest.raises(ValueError):
+            estimator.sample(n_samples=-1)
+
+        with pytest.raises(TypeError):
+            estimator.sample(n_samples="1")
+
+        estimator.fit(g)
+        np.random.seed(8888)
+        estimator.fit(g)
+        graphs = estimator.sample(1000)[1]
+        graph_mean = graphs.mean(axis=0)
+
+        assert_allclose(graph_mean, p_mat[1], atol=0.1)
+
+    def test_HSBM_score(self):
+        # tests score() and score_sample()
+        p_mat = self.p_mat[1]
+        graph = self.graph
+        estimator = HSBMEstimator(max_level=2)
+        _test_HSBM_score(estimator, p_mat, graph)
+
+        with pytest.raises(ValueError):
+            estimator.score_samples(graph=graph[1:100, 1:100])
+
+    def test_HSBM_nparams(self):
+        hsbme = HSBMEstimator(max_level=1)
+        hsbme.fit(self.graph, y=self.labels)
+        assert hsbme._n_parameters(y=self.labels)[0] == (5)
+
+        hsbme = HSBMEstimator(max_level=1, directed=True)
+        hsbme.fit(self.graph)
+        assert hsbme._n_parameters()[0] == (7)
+
+        hsbme = HSBMEstimator(max_level=1)
+        hsbme.fit(self.graph)
+        assert hsbme._n_parameters()[0] == (6)
+
+        hsbme = HSBMEstimator(max_level=1, reembed=False)
+        hsbme.fit(self.graph)
+        assert hsbme._n_parameters()[0] == (5)
+
+
 class TestRDPG:
     @classmethod
     def setup_class(cls):
@@ -588,6 +761,43 @@ def _test_score(estimator, p_mat, graph):
     lik = np.log(lik)
     assert_allclose(lik, estimator.score_samples(graph))
     assert np.sum(lik) == estimator.score(graph)
+
+
+def _test_HSBM_score(estimator, p_mat, graph):
+    np.random.seed(8888)
+    graph = graph.copy()
+    p_mat = p_mat.copy()
+    estimator.fit(graph)
+    estimator.p_mat_ = [p_mat, p_mat]
+
+    if is_symmetric(graph):
+        inds = np.triu_indices_from(graph, k=1)
+    else:
+        xu, yu = np.triu_indices_from(graph, k=1)
+        xl, yl = np.tril_indices_from(graph, k=-1)
+        x = np.concatenate((xl, xu))
+        y = np.concatenate((yl, yu))
+        inds = (x, y)
+
+    p_rav = p_mat[inds]
+    g_rav = graph[inds]
+
+    lik = np.zeros(g_rav.shape)
+    c = 1 / p_mat.size
+    for i, (g, p) in enumerate(zip(g_rav, p_rav)):
+        if p < c:
+            p = c
+        if p > 1 - c:
+            p = 1 - c
+        if g == 1:
+            lik[i] = p
+        else:
+            lik[i] = 1 - p
+
+    lik[lik < 1e-10] = 1
+    lik = np.log(lik)
+    assert_allclose(lik, estimator.score_samples(graph)[1])
+    assert np.sum(lik) == estimator.score(graph)[1]
 
 
 def hardy_weinberg(theta):
