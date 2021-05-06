@@ -16,7 +16,7 @@ def _n_to_labels(n):
     return labels
 
 
-def sample_edges(P, directed=False, loops=False):
+def sample_edges(P, directed=False, loops=False, rng=None):
     """
     Gemerates a binary random graph based on the P matrix provided
 
@@ -33,6 +33,9 @@ def sample_edges(P, directed=False, loops=False):
     loops: boolean, optional (default=False)
         If False, no edges will be sampled in the diagonal. Otherwise, edges
         are sampled in the diagonal.
+    rng: numpy.random.Generator, optional (default = None)
+        :class:`numpy.random.Generator` object to sample from distributions.
+        If None, :class:`numpy.random.RandomState` is utilized.
 
     Returns
     -------
@@ -52,15 +55,22 @@ def sample_edges(P, directed=False, loops=False):
         raise ValueError("P must have dimension 2 (n_vertices, n_dimensions)")
     if P.shape[0] != P.shape[1]:
         raise ValueError("P must be a square matrix")
+    if rng is None:
+        rng = np.random
+    elif not isinstance(rng, (np.random._generator.Generator)):
+        msg = "rng must be <class 'numpy.random._generator.Generator'> not {}.".format(
+            type(rng)
+        )
+        raise TypeError(msg)
     if not directed:
         # can cut down on sampling by ~half
         triu_inds = np.triu_indices(P.shape[0])
-        samples = np.random.binomial(1, P[triu_inds])
+        samples = rng.binomial(1, P[triu_inds])
         A = np.zeros_like(P)
         A[triu_inds] = samples
         A = symmetrize(A, method="triu")
     else:
-        A = np.random.binomial(1, P)
+        A = rng.binomial(1, P)
 
     if loops:
         return A
@@ -879,7 +889,6 @@ def mmsbm(
     Examples
     --------
     >>> rng = np.random.default_rng(1)
-    >>> np.random.seed(1)
     >>> n = 6
     >>> p = [[0.5, 0], [0, 1]]
 
@@ -897,12 +906,11 @@ def mmsbm(
     To sample a binary MMSBM similar to 2-block SBM with connectivity matrix B:
 
     >>> rng = np.random.default_rng(1)
-    >>> np.random.seed(1)
     >>> alpha = [0.05, 0.05]
     >>> mmsbm(n, p, alpha, rng = rng)
-    array([[0., 1., 0., 0., 0., 0.],
+    array([[0., 1., 1., 0., 0., 0.],
            [1., 0., 0., 0., 0., 0.],
-           [0., 0., 0., 0., 0., 0.],
+           [1., 0., 0., 0., 0., 0.],
            [0., 0., 0., 0., 1., 1.],
            [0., 0., 0., 1., 0., 1.],
            [0., 0., 0., 1., 1., 0.]])
@@ -973,7 +981,7 @@ def mmsbm(
 
     P = p[(labels, labels.T)]
 
-    A = sample_edges(P, directed=directed, loops=loops)
+    A = sample_edges(P, directed=directed, loops=loops, rng=rng)
 
     if not loops:
         np.fill_diagonal(labels, -1)
