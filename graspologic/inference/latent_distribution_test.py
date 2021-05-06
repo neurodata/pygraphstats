@@ -10,7 +10,7 @@ from ..embed import select_dimension, AdjacencySpectralEmbed
 from ..utils import import_graph, fit_plug_in_variance_estimator
 from ..align import SignFlips
 from ..align import SeedlessProcrustes
-from sklearn.utils import check_array
+from sklearn.utils import check_array, check_random_state
 from sklearn.metrics import pairwise_distances
 from sklearn.metrics.pairwise import pairwise_kernels
 from sklearn.metrics.pairwise import PAIRED_DISTANCES
@@ -18,6 +18,7 @@ from sklearn.metrics.pairwise import PAIRWISE_KERNEL_FUNCTIONS
 from hyppo.ksample import KSample
 from hyppo._utils import gaussian
 from collections import namedtuple
+from joblib import Parallel, delayed
 
 _VALID_DISTANCES = list(PAIRED_DISTANCES.keys())
 _VALID_KERNELS = list(PAIRWISE_KERNEL_FUNCTIONS.keys())
@@ -36,6 +37,7 @@ def latent_distribution_test(
     metric="euclidean",
     n_components=None,
     n_bootstraps=500,
+    random_state=None,
     workers=1,
     size_correction=True,
     pooled=False,
@@ -87,9 +89,21 @@ def latent_distribution_test(
         Number of bootstrap iterations for the backend hypothesis test.
         See :class:`hyppo.ksample.KSample` for more information.
 
+    random_state : {None, int, `~np.random.RandomState`, `~np.random.Generator`}
+        This parameter defines the object to use for drawing random
+        variates.
+        If `random_state` is ``None`` the `~np.random.RandomState` singleton is
+        used.
+        If `random_state` is an int, a new ``RandomState`` instance is used,
+        seeded with `random_state`.
+        If `random_state` is already a ``RandomState`` or ``Generator``
+        instance, then that object is used.
+        Default is None.
+
     workers : int (default=1)
         Number of workers to use. If more than 1, parallelizes the code.
         Supply -1 to use all cores available to the Process.
+        See :class:joblib.Parallel for more details.
 
     size_correction : bool (default=True)
         Ignored when the two graphs have the same number of vertices. The test
@@ -312,7 +326,9 @@ def latent_distribution_test(
         Q = np.identity(X1_hat.shape[0])
 
     if size_correction:
-        X1_hat, X2_hat = _sample_modified_ase(X1_hat, X2_hat, pooled=pooled)
+        X1_hat, X2_hat = _sample_modified_ase(
+            X1_hat, X2_hat, workers=workers, random_state=random_state, pooled=pooled
+        )
 
     metric_func_ = _instantiate_metric_func(metric=metric, test=test)
     test_obj = KSample(test, compute_distance=metric_func_)
@@ -407,7 +423,7 @@ def _embed(A1, A2, n_components):
     return X1_hat, X2_hat
 
 
-def _sample_modified_ase(X, Y, pooled=False):
+def _sample_modified_ase(X, Y, workers, random_state, pooled=False):
     N, M = len(X), len(Y)
 
     # return if graphs are same order, else ensure X the larger graph.
@@ -427,12 +443,20 @@ def _sample_modified_ase(X, Y, pooled=False):
     else:
         get_sigma = fit_plug_in_variance_estimator(X)
     X_sigmas = get_sigma(X) * (N - M) / (N * M)
-
     # increase the variance of X by sampling from the asy dist
     X_sampled = np.zeros(X.shape)
-    # TODO may be parallelized, but requires keeping track of random state
-    for i in range(N):
-        X_sampled[i, :] = X[i, :] + stats.multivariate_normal.rvs(cov=X_sigmas[i])
+    rng = check_random_state(random_state)
+    X_sampled = np.asarray(
+        Parallel(n_jobs=workers)(
+            delayed(add_variance)(X[i, :], X_sigmas[i], r)
+            for i, r in zip(range(N), rng.randint(np.iinfo(np.int32).max, size=X.shape))
+        )
+    )
 
     # return the embeddings in the appropriate order
     return (Y, X_sampled) if reverse_order else (X_sampled, Y)
+
+
+def add_variance(X_orig, X_sigma, seed):
+    np.random.seed(seed)
+    return X_orig + stats.multivariate_normal.rvs(cov=X_sigma)

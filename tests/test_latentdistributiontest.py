@@ -68,6 +68,7 @@ class TestLatentDistributionTest(unittest.TestCase):
         # check workers argument
         with pytest.raises(TypeError):
             latent_distribution_test(A1, A2, workers=0.5)
+            latent_distribution_test(A1, A2, workers="oops")
         # check size_correction argument
         with pytest.raises(TypeError):
             latent_distribution_test(A1, A2, size_correction=0)
@@ -207,8 +208,16 @@ class TestLatentDistributionTest(unittest.TestCase):
         A1 = sbm(2 * [b_size], B1)
         A2 = sbm(2 * [b_size], B1)
         A3 = sbm(2 * [b_size], B2)
+
+        # non-parallel test
         ldt_null = latent_distribution_test(A1, A2)
         ldt_alt = latent_distribution_test(A1, A3)
+        self.assertTrue(ldt_null[0] > 0.05)
+        self.assertTrue(ldt_alt[0] <= 0.05)
+
+        # parallel test
+        ldt_null = latent_distribution_test(A1, A2, workers=-1)
+        ldt_alt = latent_distribution_test(A1, A3, workers=-1)
         self.assertTrue(ldt_null[0] > 0.05)
         self.assertTrue(ldt_alt[0] <= 0.05)
 
