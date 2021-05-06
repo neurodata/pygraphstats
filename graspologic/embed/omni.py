@@ -5,9 +5,32 @@ import warnings
 
 import numpy as np
 
-from ..utils import import_graph, is_fully_connected
+from ..utils import import_graph, is_fully_connected, to_laplacian
 from .base import BaseEmbedMulti
 from scipy.sparse import isspmatrix_csr
+
+
+def _get_laplacian_matrices(graphs):
+    """
+    Helper function to convert graph adjacency matrices to graph Laplacian
+
+    Parameters
+    ----------
+    graphs : list
+        List of array-like with shapes (n_vertices, n_vertices).
+
+    Returns
+    -------
+    out : list
+        List of array-like with shapes (n_vertices, n_vertices).
+    """
+    if isinstance(graphs, list):
+        out = [to_laplacian(g) for g in graphs]
+    elif isinstance(graphs, np.ndarray):
+        # Copying is necessary to not overwrite input array
+        out = np.array([to_laplacian(graphs[i]) for i in range(len(graphs))])
+
+    return out
 
 
 def _get_omni_matrix(graphs):
@@ -97,6 +120,10 @@ class OmnibusEmbed(BaseEmbedMulti):
         If graph(s) are directed, whether to concatenate each graph's left and right (out and in) latent positions
         along axis 1.
 
+    lse : bool, optional (default False)
+        Whether to construct the OMNI matrix use the laplacian matrices
+        of the graphs and embed the OMNI matrix with LSE
+
     Attributes
     ----------
     n_graphs_ : int
@@ -139,6 +166,7 @@ class OmnibusEmbed(BaseEmbedMulti):
         check_lcc=True,
         diag_aug=True,
         concat=False,
+        lse=False,
     ):
         super().__init__(
             n_components=n_components,
@@ -149,6 +177,7 @@ class OmnibusEmbed(BaseEmbedMulti):
             diag_aug=diag_aug,
             concat=concat,
         )
+        self.lse = lse
 
     def fit(self, graphs, y=None):
         """
@@ -185,6 +214,10 @@ class OmnibusEmbed(BaseEmbedMulti):
         # Diag augment
         if self.diag_aug:
             graphs = self._diag_aug(graphs)
+
+        # Laplacian transform
+        if self.lse:
+            graphs = _get_laplacian_matrices(graphs)
 
         # Create omni matrix
         omni_matrix = _get_omni_matrix(graphs)

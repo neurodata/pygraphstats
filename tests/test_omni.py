@@ -9,7 +9,7 @@ from numpy.testing import assert_allclose
 
 from graspologic.embed.omni import OmnibusEmbed, _get_omni_matrix
 from graspologic.simulations.simulations import er_nm, er_np, sbm
-from graspologic.utils.utils import is_symmetric, symmetrize
+from graspologic.utils.utils import is_symmetric, symmetrize, to_laplacian
 
 
 def generate_data(n, seed=1, symetric=True):
@@ -187,6 +187,36 @@ def test_omni_embed_directed():
 
         tol = 1.0e-2
         assert allclose(norm(OmniBar, axis=1), norm(ABar, axis=1), rtol=tol, atol=tol)
+
+    run(diag_aug=True)
+    run(diag_aug=False)
+
+
+def test_omni_embed_lse():
+    """
+    We compare the difference of norms of OmniBar and LBar.
+    LBar is the lowest variance estimate of the latent positions X.
+    OmniBar should be reasonablly close to LBar when n_vertices is high.
+    """
+
+    def compute_bar(arr):
+        n = arr.shape[0] // 2
+        return (arr[:n] + arr[n:]) / 2
+
+    def run(diag_aug):
+        X, A1, A2 = generate_data(1000, seed=2)
+        L1 = to_laplacian(A1)
+        L2 = to_laplacian(A2)
+        Lbar = (L1 + L2) / 2
+
+        omni = OmnibusEmbed(n_components=3, diag_aug=diag_aug, lse=True)
+        OmniBar = compute_bar(omni.fit_transform([L1, L2]))
+
+        omni = OmnibusEmbed(n_components=3, diag_aug=diag_aug, lse=True)
+        LBar = compute_bar(omni.fit_transform([Lbar, Lbar]))
+
+        tol = 1.0e-2
+        assert allclose(norm(OmniBar, axis=1), norm(LBar, axis=1), rtol=tol, atol=tol)
 
     run(diag_aug=True)
     run(diag_aug=False)
