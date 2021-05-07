@@ -13,6 +13,7 @@ import pandas as pd
 import scipy.sparse
 from scipy.optimize import linear_sum_assignment
 from scipy.sparse import csr_matrix, diags, isspmatrix_csr
+from scipy.sparse.csgraph import connected_components
 from sklearn.metrics import confusion_matrix
 from sklearn.utils import check_array, check_consistent_length, column_or_1d
 from sklearn.utils.multiclass import type_of_target, unique_labels
@@ -426,7 +427,8 @@ def is_fully_connected(graph):
 
     Parameters
     ----------
-    graph: nx.Graph, nx.DiGraph, nx.MultiDiGraph, nx.MultiGraph, np.ndarray
+    graph: nx.Graph, nx.DiGraph, nx.MultiDiGraph, nx.MultiGraph,
+        scipy.sparse.csr_matrix, np.ndarray
         Input graph in any of the above specified formats. If np.ndarray,
         interpreted as an :math:`n \times n` adjacency matrix
 
@@ -448,16 +450,20 @@ def is_fully_connected(graph):
     >>> is_fully_connected(a)
     False
     """
+
     if isinstance(graph, (np.ndarray, csr_matrix)):
-        if is_symmetric(graph):
-            g_object = nx.Graph()
-        else:
-            g_object = nx.DiGraph()
-        graph = nx.to_networkx_graph(graph, create_using=g_object)
-    if type(graph) in [nx.Graph, nx.MultiGraph]:
-        return nx.is_connected(graph)
-    elif type(graph) in [nx.DiGraph, nx.MultiDiGraph]:
-        return nx.is_weakly_connected(graph)
+        directed = not is_symmetric(graph)
+
+        n_components = connected_components(
+            csgraph=graph, directed=directed, connection="weak", return_labels=False
+        )
+        return n_components == 1
+
+    else:
+        if type(graph) in [nx.Graph, nx.MultiGraph]:
+            return nx.is_connected(graph)
+        elif type(graph) in [nx.DiGraph, nx.MultiDiGraph]:
+            return nx.is_weakly_connected(graph)
 
 
 def largest_connected_component(graph, return_inds=False):
