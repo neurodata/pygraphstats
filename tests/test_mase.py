@@ -71,6 +71,21 @@ def test_bad_inputs():
         MultipleASE().fit(different_size_graphs)
 
 
+def test_scores_equal():
+    """
+    This shows a better way of calculating scores, proving that the list comprehension
+    and matrix multiplication method produce the same result.
+    """
+    A = np.asarray(make_train_undirected())
+    mase = MultipleASE().fit(A)
+    Uhat = mase.latent_left_
+
+    scores = np.asarray([Uhat.T @ graph @ Uhat for graph in list(A)])
+    scores_ = Uhat.T @ A @ Uhat
+
+    assert np.array_equal(scores, scores_)
+
+
 def test_diag_aug():
     np.random.seed(5)
     n = 100
