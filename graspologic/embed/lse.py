@@ -6,6 +6,12 @@ import warnings
 from .base import BaseSpectralEmbed
 from ..utils import import_graph, to_laplacian, is_fully_connected
 
+import numpy as np
+from sklearn.utils.validation import check_is_fitted
+
+from typing import List, Optional, Union
+import networkx as nx
+
 
 class LaplacianSpectralEmbed(BaseSpectralEmbed):
     r"""
@@ -110,13 +116,13 @@ class LaplacianSpectralEmbed(BaseSpectralEmbed):
     def __init__(
         self,
         form="DAD",
-        n_components=None,
-        n_elbows=2,
-        algorithm="randomized",
-        n_iter=5,
-        check_lcc=True,
-        regularizer=None,
-        concat=False,
+        n_components: Optional[int] = None,
+        n_elbows: Optional[int] = 2,
+        algorithm: Optional[str] = "randomized",
+        n_iter: Optional[int] = 5,
+        check_lcc: Optional[bool] = True,
+        regularizer: Optional[float] = None,
+        concat: Optional[bool] = False,
     ):
         super().__init__(
             n_components=n_components,
@@ -129,7 +135,7 @@ class LaplacianSpectralEmbed(BaseSpectralEmbed):
         self.form = form
         self.regularizer = regularizer
 
-    def fit(self, graph, y=None):
+    def fit(self, graph: Union[np.ndarray, nx.Graph], y=None):
         """
         Fit LSE model to input graph
 
@@ -150,4 +156,36 @@ class LaplacianSpectralEmbed(BaseSpectralEmbed):
         A = self._fit(graph)
         L_norm = to_laplacian(A, form=self.form, regularizer=self.regularizer)
         self._reduce_dim(L_norm)
+
+        self.is_fitted_ = True
+
         return self
+
+    def _compute_oos_prediction(self, X, directed):
+        """
+        Computes the out-of-sample latent position estimation.
+        Parameters
+        ----------
+        X: np.ndarray
+            Input to do oos embedding on.
+        directed: bool
+            Indication if graph is directed or undirected
+        Returns
+        -------
+        out : array_like or tuple, shape
+        """
+        if not directed:
+            if X.ndim == 1:
+                return X @ self._pinv_left / np.sum(X)
+            else:
+                return ((X @ self._pinv_left).T / np.sum(X, axis=1)).T
+        elif directed:
+            if X[0].ndim == 1:
+                return (
+                    X[1] @ self._pinv_right / np.sum(X[1]),
+                    X[0] @ self._pinv_left / np.sum(X[0]),
+                )
+            else:
+                return ((X[1] @ self._pinv_right).T / np.sum(X[1], axis=1)).T, (
+                    (X[0] @ self._pinv_left).T / np.sum(X[0], axis=1)
+                ).T

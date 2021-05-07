@@ -288,6 +288,42 @@ class TestAdjacencySpectralEmbedSparse(unittest.TestCase):
 
 
 class TestLaplacianSpectralEmbed(unittest.TestCase):
+    def setUp(self):
+        np.random.seed(9001)
+        n = [10, 10]
+        p = np.array([[0.9, 0.1], [0.1, 0.9]])
+        wt = [[normal, poisson], [poisson, normal]]
+        wtargs = [
+            [dict(loc=3, scale=1), dict(lam=5)],
+            [dict(lam=5), dict(loc=3, scale=1)],
+        ]
+        self.testgraphs = dict(
+            Guw=sbm(n=n, p=p),
+            Gw=sbm(n=n, p=p, wt=wt, wtargs=wtargs),
+            Guwd=sbm(n=n, p=p, directed=True),
+            Gwd=sbm(n=n, p=p, wt=wt, wtargs=wtargs, directed=True),
+        )
+        self.lse = LaplacianSpectralEmbed(n_components=2)
+
+    def test_different_forms(self):
+        f = np.array([[1, 2], [2, 1]])
+        lse = LaplacianSpectralEmbed(form="I-DAD")
+
+    def test_transform_correct_types(self):
+        lse = LaplacianSpectralEmbed(n_components=2)
+        for graph in self.testgraphs.values():
+            A, a = remove_vertices(graph, 1, return_removed=True)
+            lse.fit(A)
+            directed = lse.latent_right_ is not None
+            w = lse.transform(a)
+            if directed:
+                self.assertIsInstance(w, tuple)
+                self.assertIsInstance(w[0], np.ndarray)
+                self.assertIsInstance(w[1], np.ndarray)
+            elif not directed:
+                self.assertIsInstance(w, np.ndarray)
+                self.assertEqual(np.atleast_2d(w).shape[1], 2)
+
     def test_output_dim(self):
         _test_output_dim(self, LaplacianSpectralEmbed)
 
@@ -302,10 +338,6 @@ class TestLaplacianSpectralEmbed(unittest.TestCase):
         P = np.array([[0.8, 0.2], [0.2, 0.3]])
         _test_sbm_er_binary(self, LaplacianSpectralEmbed, P, directed=True)
 
-    def test_different_forms(self):
-        f = np.array([[1, 2], [2, 1]])
-        lse = LaplacianSpectralEmbed(form="I-DAD")
-
     def test_unconnected_warning(self):
         n = [50, 50]
         p = [[1, 0], [0, 1]]
@@ -313,6 +345,21 @@ class TestLaplacianSpectralEmbed(unittest.TestCase):
         with self.assertWarns(UserWarning):
             lse = LaplacianSpectralEmbed()
             lse.fit(A)
+
+    def test_embedding(self):
+        epsilon = 0.1
+        nodes_per_community = 100
+        P = np.array([[0.8, 0.2], [0.2, 0.8]])
+        undirected, labels_ = sbm(2 * [nodes_per_community], P, return_labels=True)
+
+        oos_idx = 0
+        A, a = remove_vertices(undirected, indices=oos_idx, return_removed=True)
+
+        lse = LaplacianSpectralEmbed(n_components=2)
+        X_hat = lse.fit_transform(A)
+        w = lse.transform(a)
+        self.assertTrue(X_hat[0][0] - epsilon < w[0] < X_hat[0][0] + epsilon)
+        self.assertTrue(X_hat[0][1] - epsilon < w[0] < X_hat[0][1] + epsilon)
 
 
 class TestLaplacianSpectralEmbedSparse(unittest.TestCase):
